@@ -1,5 +1,5 @@
-streamlit
+streamlit==1.40.2
 transformers==4.46.3
-torch
-Pillow
-gTTS
+torch==2.5.1
+Pillow==10.4.0
+gTTS==2.5.3
