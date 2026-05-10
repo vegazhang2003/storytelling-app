@@ -17,28 +17,43 @@ uploaded_file = st.file_uploader(
 
 @st.cache_resource
 def get_caption_model():
-    caption_model = pipeline(
+    return pipeline(
         "image-to-text",
         model="Salesforce/blip-image-captioning-base"
     )
-    return caption_model
 
 
 @st.cache_resource
 def get_story_model():
-    story_model = pipeline(
+    return pipeline(
         "text-generation",
         model="Qwen/Qwen2.5-0.5B-Instruct"
     )
-    return story_model
 
 
-def make_audio(text):
+def create_audio(text):
     tts = gTTS(text=text, lang="en")
-    audio_file = BytesIO()
-    tts.write_to_fp(audio_file)
-    audio_file.seek(0)
-    return audio_file
+    audio_fp = BytesIO()
+    tts.write_to_fp(audio_fp)
+    audio_fp.seek(0)
+    return audio_fp.getvalue()
+
+
+def clean_story(text, prompt):
+    story = text.replace(prompt, "").strip()
+
+    unwanted_phrases = [
+        "Story:",
+        "Generated Story:",
+        "Write in present tense.",
+        "Do not start or end with outlying information.",
+        "Only write the story.",
+    ]
+
+    for phrase in unwanted_phrases:
+        story = story.replace(phrase, "").strip()
+
+    return story
 
 
 if uploaded_file is not None:
@@ -59,33 +74,32 @@ if uploaded_file is not None:
 
         with st.spinner("Writing the story..."):
             prompt = (
-                "Write a short story for children aged 3 to 10 based on this image description: "
+                "Please write only a short children's story based on this image description: "
                 + caption
                 + ". The story should be 50 to 100 words. "
-                + "Use simple English. Make the story warm, happy, and easy to understand. "
-                + "Only write the story. Do not include instructions or extra explanation."
+                + "Use simple English for children aged 3 to 10. "
+                + "Make the story warm, happy, and easy to understand. "
+                + "Do not include instructions, titles, or explanations. "
+                + "Start the story directly."
             )
 
             story_result = story_model(
                 prompt,
-                max_new_tokens=140,
+                max_new_tokens=130,
                 do_sample=True,
                 temperature=0.7,
                 top_p=0.9,
                 repetition_penalty=1.2
             )
 
-            story = story_result[0]["generated_text"]
-            story = story.replace(prompt, "").strip()
-            story = story.replace("Story:", "").strip()
-            story = story.replace("Generated Story:", "").strip()
-            story = story.replace("Do not start or end with outlying information.", "").strip()
+            full_text = story_result[0]["generated_text"]
+            story = clean_story(full_text, prompt)
 
         st.subheader("Generated Story")
         st.write(story)
 
         with st.spinner("Creating audio..."):
-            audio_file = make_audio(story)
+            audio_bytes = create_audio(story)
 
         st.subheader("Audio")
-        st.audio(audio_file, format="audio/mp3")
+        st.audio(audio_bytes, format="audio/mp3")
