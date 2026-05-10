@@ -2,7 +2,7 @@ import streamlit as st
 from transformers import pipeline
 from PIL import Image
 from gtts import gTTS
-import tempfile
+from io import BytesIO
 
 st.set_page_config(page_title="Storytelling App", page_icon="📖")
 
@@ -33,6 +33,14 @@ def get_story_model():
     return story_model
 
 
+def make_audio(text):
+    tts = gTTS(text=text, lang="en")
+    audio_file = BytesIO()
+    tts.write_to_fp(audio_file)
+    audio_file.seek(0)
+    return audio_file
+
+
 if uploaded_file is not None:
     image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption="Uploaded Image", use_container_width=True)
@@ -55,7 +63,7 @@ if uploaded_file is not None:
                 + caption
                 + ". The story should be 50 to 100 words. "
                 + "Use simple English. Make the story warm, happy, and easy to understand. "
-                + "Only write the story."
+                + "Only write the story. Do not include instructions or extra explanation."
             )
 
             story_result = story_model(
@@ -70,16 +78,14 @@ if uploaded_file is not None:
             story = story_result[0]["generated_text"]
             story = story.replace(prompt, "").strip()
             story = story.replace("Story:", "").strip()
+            story = story.replace("Generated Story:", "").strip()
+            story = story.replace("Do not start or end with outlying information.", "").strip()
 
         st.subheader("Generated Story")
         st.write(story)
 
         with st.spinner("Creating audio..."):
-            tts = gTTS(text=story, lang="en")
-
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio:
-                tts.save(temp_audio.name)
-                audio_path = temp_audio.name
+            audio_file = make_audio(story)
 
         st.subheader("Audio")
-        st.audio(audio_path, format="audio/mp3")
+        st.audio(audio_file, format="audio/mp3")
