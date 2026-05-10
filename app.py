@@ -31,12 +31,12 @@ def get_story_model():
     )
 
 
-def create_audio(text):
+def create_audio_bytes(text):
+    audio = BytesIO()
     tts = gTTS(text=text, lang="en")
-    audio_fp = BytesIO()
-    tts.write_to_fp(audio_fp)
-    audio_fp.seek(0)
-    return audio_fp.getvalue()
+    tts.write_to_fp(audio)
+    audio.seek(0)
+    return audio.read()
 
 
 def clean_story(text, prompt):
@@ -45,6 +45,8 @@ def clean_story(text, prompt):
     unwanted_phrases = [
         "Story:",
         "Generated Story:",
+        "As an AI language model,",
+        "I can't generate images as requested but I'd be happy to create a fictional story instead.",
         "Write in present tense.",
         "Do not start or end with outlying information.",
         "Only write the story.",
@@ -74,13 +76,13 @@ if uploaded_file is not None:
 
         with st.spinner("Writing the story..."):
             prompt = (
-                "Please write only a short children's story based on this image description: "
+                "Write only a short children's story based on this image description: "
                 + caption
                 + ". The story should be 50 to 100 words. "
                 + "Use simple English for children aged 3 to 10. "
                 + "Make the story warm, happy, and easy to understand. "
                 + "Do not include instructions, titles, or explanations. "
-                + "Start the story directly."
+                + "Start directly with the story."
             )
 
             story_result = story_model(
@@ -99,7 +101,14 @@ if uploaded_file is not None:
         st.write(story)
 
         with st.spinner("Creating audio..."):
-            audio_bytes = create_audio(story)
+            audio_bytes = create_audio_bytes(story)
 
         st.subheader("Audio")
-        st.audio(audio_bytes, format="audio/mp3")
+        st.audio(audio_bytes, format="audio/mpeg")
+
+        st.download_button(
+            label="Download Audio",
+            data=audio_bytes,
+            file_name="story_audio.mp3",
+            mime="audio/mpeg"
+        )
